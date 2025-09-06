@@ -1,0 +1,95 @@
+====================================================================================================
+VECTOR DATABASE ANALYSIS - COMPREHENSIVE OUTPUT LOG
+====================================================================================================
+Generated: 2025-09-06 18:19:58
+Log File: output_logs/full_vector_analysis_report_20250906_181958.txt
+====================================================================================================
+Custom Vector Database with Cosine Similarity
+PostgreSQL Backend with Dynamic Content Generation
+====================================================================================================
+
+EXECUTIVE SUMMARY
+================================================================================
+This report provides comprehensive analysis of vector database operations
+including performance metrics, similarity calculations, and database efficiency.
+The analysis demonstrates custom cosine similarity implementation and
+PostgreSQL-backed vector storage capabilities.
+
+
+PERFORMANCE METRICS ANALYSIS
+================================================================================
+
+OVERALL EXECUTION METRICS
+--------------------------------------------------
+Total Execution Time: 0.0000 seconds
+Memory Usage: -13.7 MB
+Peak Memory: 0.0 MB
+CPU Usage: 90.1%
+
+VECTOR PROCESSING METRICS
+--------------------------------------------------
+Total Vectors Processed: 40
+Vectors Added: 40
+Vectors Searched: 40
+Vectors Deleted: 0
+Average Vector Dimension: 4.0
+Vector Processing Throughput: 2330168.9 vectors/second
+
+SEARCH PERFORMANCE METRICS
+--------------------------------------------------
+Total Search Queries: 10
+Average Search Time: 0.1458 seconds
+Average Results per Search: 4.0
+Search Query Throughput: 582542.2 queries/second
+
+SIMILARITY CALCULATION METRICS
+--------------------------------------------------
+Total Similarity Calculations: 4,336
+Average Calculation Time: 0.000132 seconds
+Highest Similarity Score: 0.9999
+Lowest Similarity Score: 0.7184
+Similarity Calculation Throughput: 252590307.6 calculations/second
+
+OPERATION ANALYSIS
+================================================================================
+Total Operations Logged: 3
+
+OPERATION TIMELINE:
+--------------------------------------------------
+ 1. 2025-09-06T18:19:52 | 
+    Execution: 0.0001s | Memory: 0.0MB | Vectors: 0
+ 2. 2025-09-06T18:19:58 | full_vector_analysis
+    Execution: 6.6441s | Memory: -13.7MB | Vectors: 40
+ 3. 2025-09-06T18:19:58 | 
+    Execution: 0.0000s | Memory: -13.7MB | Vectors: 40
+
+DATABASE PERFORMANCE ANALYSIS
+================================================================================
+Database Connections: 55
+Database Queries: 55
+Database Errors: 0
+Database Success Rate: 100.0%
+Database Error Rate: 0.0%
+Database Query Rate: 3203982.2 queries/second
+
+SIMILARITY ANALYSIS
+================================================================================
+Similarity Algorithm: Custom Cosine Similarity Implementation
+Total Calculations: 4,336
+Average Calculation Time: 0.000132 seconds
+
+SIMILARITY SCORE DISTRIBUTION
+--------------------------------------------------
+Highest Score: 0.9999
+Lowest Score: 0.7184
+Score Range: 0.2814
+Average Calculations per Search: 433.6
+
+TECHNICAL RECOMMENDATIONS
+================================================================================
+
+PERFORMANCE OPTIMIZATION
+--------------------------------------------------
+Memory usage within acceptable limits
+Search performance is good
+Similarity calculations are efficient
