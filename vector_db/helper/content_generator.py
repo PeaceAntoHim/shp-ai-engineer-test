@@ -1,7 +1,3 @@
-"""
-Dynamic content generator for vector database
-Creates realistic varied content across different categories
-"""
 import random
 import math
 
@@ -20,7 +16,7 @@ class ContentGenerator:
         self.programming_content = [
             "Python", "JavaScript", "Java", "C++", "C#", "Go", "Rust", "Ruby", "PHP", "Swift",
             "web development", "mobile apps", "desktop applications", "databases", "algorithms",
-            "data structures", "machine learning", "artificial intelligence", "backend development",
+            "data structures", "machine learning", "artificial intelligence", "receipt development",
             "frontend development", "full stack", "DevOps", "cloud computing", "microservices"
         ]
         

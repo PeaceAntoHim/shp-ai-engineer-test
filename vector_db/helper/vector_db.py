@@ -1,7 +1,7 @@
 import time
-from coding_test.vector_db.helper.connection import Database
-from coding_test.vector_db.helper.cosine_similarity import cosine_similarity, find_most_similar
-from coding_test.vector_db.helper.logger import VectorDBLogger
+from vector_db.helper.connection import Database
+from vector_db.helper.cosine_similarity import cosine_similarity, find_most_similar
+from vector_db.helper.logger import VectorDBLogger
 
 
 class VectorDB:
@@ -73,7 +73,7 @@ class VectorDB:
             return []
 
         # Extract just the embeddings for similarity calculation
-        embeddings = [v['embedding'] for v in all_vectors]
+        embeddings = [v["embedding"] for v in all_vectors]
 
         # Log similarity calculations
         similarity_start_time = time.time()
@@ -91,7 +91,7 @@ class VectorDB:
         for index, similarity in similarities:
             if similarity >= min_similarity and len(results) < limit:
                 vector_data = all_vectors[index].copy()
-                vector_data['similarity'] = similarity
+                vector_data["similarity"] = similarity
                 results.append(vector_data)
                 similarity_scores.append(similarity)
 
@@ -104,11 +104,11 @@ class VectorDB:
                 query_dimension=len(query_vector),
                 results_count=len(results),
                 search_time=total_search_time,
-                similarities=similarity_scores
+                similarities=similarity_scores,
             )
             self.logger.log_similarity_calculation(
                 calculation_count=len(embeddings),
-                calculation_time=similarity_calculation_time
+                calculation_time=similarity_calculation_time,
             )
             self.logger.log_database_operation("SELECT_VECTORS", True)
 
@@ -120,7 +120,9 @@ class VectorDB:
         result = self.db.get_vector(vector_id)
 
         if self.logger:
-            self.logger.log_database_operation("SELECT_VECTOR_BY_ID", result is not None)
+            self.logger.log_database_operation(
+                "SELECT_VECTOR_BY_ID", result is not None
+            )
 
         return result
 
@@ -162,22 +164,22 @@ class VectorDB:
 
         if not all_vectors:
             return {
-                'total_vectors': 0,
-                'average_dimension': 0,
-                'categories': {},
-                'dimensions_distribution': {}
+                "total_vectors": 0,
+                "average_dimension": 0,
+                "categories": {},
+                "dimensions_distribution": {},
             }
 
         # Calculate statistics
         total_vectors = len(all_vectors)
-        dimensions = [len(v['embedding']) for v in all_vectors]
+        dimensions = [len(v["embedding"]) for v in all_vectors]
         average_dimension = sum(dimensions) / len(dimensions) if dimensions else 0
 
         # Category distribution
         categories = {}
         for vector in all_vectors:
-            metadata = vector.get('metadata', {})
-            category = metadata.get('category', 'unknown')
+            metadata = vector.get("metadata", {})
+            category = metadata.get("category", "unknown")
             categories[category] = categories.get(category, 0) + 1
 
         # Dimension distribution
@@ -186,11 +188,11 @@ class VectorDB:
             dimensions_dist[dim] = dimensions_dist.get(dim, 0) + 1
 
         stats = {
-            'total_vectors': total_vectors,
-            'average_dimension': average_dimension,
-            'categories': categories,
-            'dimensions_distribution': dimensions_dist,
-            'logger_metrics': self.logger.metrics.to_dict() if self.logger else None
+            "total_vectors": total_vectors,
+            "average_dimension": average_dimension,
+            "categories": categories,
+            "dimensions_distribution": dimensions_dist,
+            "logger_metrics": self.logger.metrics.to_dict() if self.logger else None,
         }
 
         return stats
