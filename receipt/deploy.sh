@@ -109,7 +109,7 @@ max_attempts=12
 attempt=1
 
 while [ $attempt -le $max_attempts ]; do
-    if curl -f -s http://localhost:8000/health >/dev/null 2>&1; then
+    if curl -f -s http://localhost:8000/api/v1/health >/dev/null 2>&1; then
         print_success "Service is healthy and ready!"
         break
     else
