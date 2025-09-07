@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Receipt Management Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'spin-slow': 'spin 2s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">Receipt Manager</h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button onclick="showSection('upload')" class="nav-btn text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        Upload Receipt
+                    </button>
+                    <button onclick="showSection('receipts')" class="nav-btn text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        View Receipts
+                    </button>
+                    <button onclick="showSection('insights')" class="nav-btn text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">
+                        Insights
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Upload Section -->
+        <div id="upload-section" class="section">
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Upload Receipt</h2>
+
+                <!-- File Upload Area -->
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center" id="drop-zone">
+                    <input type="file" id="file-input" accept="image/*" class="hidden">
+                    <div id="upload-prompt">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <div class="mt-4">
+                            <label for="file-input" class="cursor-pointer">
+                                <span class="text-base font-medium text-blue-600 hover:text-blue-500">
+                                    Click to upload
+                                </span>
+                                <span class="text-gray-500"> or drag and drop</span>
+                            </label>
+                            <p class="text-sm text-gray-500 mt-1">PNG, JPG, JPEG up to 10MB</p>
+                        </div>
+                    </div>
+                    <div id="upload-progress" class="hidden">
+                        <div class="animate-spin-slow rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                        <p class="text-sm text-gray-600 mt-2">Processing receipt...</p>
+                    </div>
+                </div>
+
+                <!-- Upload Result -->
+                <div id="upload-result" class="hidden mt-6 p-4 rounded-lg"></div>
+
+                <!-- Preview -->
+                <div id="image-preview" class="hidden mt-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Preview</h3>
+                    <img id="preview-image" class="max-w-full h-64 object-contain border rounded" alt="Receipt preview">
+                </div>
+            </div>
+        </div>
+
+        <!-- Receipts List Section -->
+        <div id="receipts-section" class="section hidden">
+            <div class="bg-white shadow rounded-lg">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-2xl font-bold text-gray-900">Your Receipts</h2>
+                </div>
+                <div id="receipts-list" class="divide-y divide-gray-200">
+                    <!-- Receipts will be loaded here -->
+                </div>
+                <div id="receipts-loading" class="p-8 text-center">
+                    <div class="animate-spin-slow rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                    <p class="text-sm text-gray-600 mt-2">Loading receipts...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights Section -->
+        <div id="insights-section" class="section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Analytics Card -->
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-4">Spending Analytics</h2>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Time Period</label>
+                        <select id="analytics-period" class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                        </select>
+                    </div>
+                    <button onclick="loadAnalytics()" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
+                        Generate Analytics
+                    </button>
+                    <div id="analytics-result" class="mt-4"></div>
+                </div>
+
+                <!-- AI Insights Card -->
+                <div class="bg-white shadow rounded-lg p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">Ask AI About Your Spending</h2>
+                        <div id="ai-status" class="text-xs text-gray-500"></div>
+                    </div>
+                    
+                    <!-- AI Mode Slider -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">AI Processing Mode</label>
+                        <div class="relative">
+                            <div class="flex items-center justify-between bg-gray-100 rounded-lg p-1">
+                                <button 
+                                    id="rule-based-btn" 
+                                    class="ai-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all duration-200 text-gray-700"
+                                    onclick="selectAIMode('rule_based')"
+                                >
+                                    <span class="block">Rule-based AI</span>
+                                    <span class="block text-xs opacity-75">Fast & Reliable</span>
+                                </button>
+                                <button 
+                                    id="generative-btn" 
+                                    class="ai-mode-btn flex-1 py-2 px-3 text-sm font-medium rounded-md transition-all duration-200 text-gray-500"
+                                    onclick="selectAIMode('generative')"
+                                    disabled
+                                >
+                                    <span class="block">Generative AI</span>
+                                    <span class="block text-xs opacity-75">Advanced & Creative</span>
+                                </button>
+                            </div>
+                            <div class="mt-2 text-xs text-gray-500" id="ai-mode-description">
+                                Uses predefined patterns to analyze your spending data quickly and reliably.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
+                        <textarea
+                            id="insight-question"
+                            placeholder="e.g., How much did I spend on groceries this month?"
+                            class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                            rows="3"
+                        ></textarea>
+                    </div>
+                    <button onclick="askInsight()" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:ring-2 focus:ring-green-500">
+                        Ask AI
+                    </button>
+                    <div id="insight-result" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Detail Modal -->
+    <div id="receipt-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Receipt Details</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="modal-content">
+                <!-- Receipt details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Image Modal -->
+    <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-75 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative min-h-full flex items-center justify-center p-4">
+            <div class="relative max-w-4xl max-h-full">
+                <!-- Close button -->
+                <button onclick="closeImageModal()" class="absolute top-4 right-4 text-white hover:text-gray-300 z-10 bg-black bg-opacity-50 rounded-full p-2 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+                
+                <!-- Help text -->
+                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-3 py-2 rounded-lg">
+                    <p class="text-center">
+                        <span class="hidden sm:inline">Press <kbd class="bg-gray-700 px-2 py-1 rounded text-xs">Esc</kbd>, double-click image, or click outside to close</span>
+                        <span class="sm:hidden">Tap image or outside to close</span>
+                    </p>
+                </div>
+                
+                <img id="modal-image" class="max-w-full max-h-screen object-contain cursor-pointer" alt="Receipt image">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

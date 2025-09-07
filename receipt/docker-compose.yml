@@ -1,0 +1,25 @@
+services:
+  ai-platform:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-engineering-platform
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+      - receipts_data:/app/receipts.db
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  receipts_data:
+    driver: local
