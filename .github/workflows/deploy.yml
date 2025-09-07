@@ -24,7 +24,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.GCE_STAGING_USER }}@${{ secrets.GCE_STAGING_HOST }} <<'EOF'
             set -e
-            cd /opt/code/shp-ai-engineer-test
+            cd /opt/code/shp-ai-engineer-test/receipt
             git pull origin main
             ./deploy.sh
           EOF

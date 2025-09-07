@@ -1,7 +1,7 @@
 import time
-from vector_db.helper.connection import Database
-from vector_db.helper.cosine_similarity import cosine_similarity, find_most_similar
-from vector_db.helper.logger import VectorDBLogger
+from helper.connection import Database
+from helper.cosine_similarity import cosine_similarity, find_most_similar
+from helper.logger import VectorDBLogger
 
 
 class VectorDB:
