@@ -1,0 +1,30 @@
+name: Deploy to GCE Staging
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GCE_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.GCE_STAGING_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to GCE Staging Server
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.GCE_STAGING_USER }}@${{ secrets.GCE_STAGING_HOST }} <<'EOF'
+            set -e
+            cd /opt/code/shp-ai-engineer-test
+            git pull origin main
+            ./deploy.sh
+          EOF

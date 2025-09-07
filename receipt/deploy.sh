@@ -47,7 +47,7 @@ if ! command_exists docker; then
     exit 1
 fi
 
-if ! command_exists docker-compose; then
+if ! command_exists docker compose; then
     print_error "Docker Compose is not installed!"
     exit 1
 fi
@@ -89,15 +89,15 @@ print_success "Directories created"
 
 # Stop existing containers
 print_status "Stopping existing containers..."
-docker-compose down --remove-orphans || print_warning "No containers to stop"
+docker compose down --remove-orphans || print_warning "No containers to stop"
 
 # Remove old images (optional - uncomment if you want to always rebuild)
 # print_status "Removing old images..."
-# docker-compose down --rmi all || print_warning "No images to remove"
+# docker compose down --rmi all || print_warning "No images to remove"
 
 # Build and start services
 print_status "Building and starting services..."
-docker-compose up --build -d
+docker compose up --build -d
 
 # Wait for service to be ready
 print_status "Waiting for service to be ready..."
@@ -122,16 +122,16 @@ done
 if [ $attempt -gt $max_attempts ]; then
     print_error "Service failed to become healthy within the expected time"
     print_status "Checking logs..."
-    docker-compose logs ai-platform
+    docker compose logs ai-platform
     exit 1
 fi
 
 # Show final status
 print_success "Deployment completed successfully!"
 print_status "Service is running at: http://localhost:8000"
-print_status "Use 'docker-compose logs -f ai-platform' to view logs"
-print_status "Use 'docker-compose down' to stop the service"
+print_status "Use 'docker compose logs -f ai-platform' to view logs"
+print_status "Use 'docker compose down' to stop the service"
 
 # Show running containers
 print_status "Running containers:"
-docker-compose ps
+docker compose ps
