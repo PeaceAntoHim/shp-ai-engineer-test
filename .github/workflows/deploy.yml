@@ -2,12 +2,12 @@ name: Deploy to GCE Staging
 
 on:
   push:
-    branches: [staging]
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: staging
+    environment: stg
 
     steps:
       - name: Checkout code
