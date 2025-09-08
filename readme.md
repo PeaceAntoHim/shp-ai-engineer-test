@@ -13,14 +13,22 @@ shp-ai-engineer-test/
 ```
 
 
-## Prerequisites
+## Setup Requirements
 
+### Prerequisites
 Make sure you have Docker and Docker Compose installed:
 ```shell script
 docker --version
 docker-compose --version
 ```
 
+
+### Download Required Dataset
+Download the large CSV file for customer analysis:
+```shell script
+# Download large customer dataset (2M records)
+wget -O cutomers/dataset/customers-2000000.csv "https://drive.google.com/uc?id=1IXQDp8Um3d-o7ysZLxkDyuvFj9gtlxqz&export=download"
+```
 
 ## Running Each Component
 
@@ -114,7 +122,7 @@ cd vector_db && chmod +x docker-compose.yml && docker-compose up --build
 ```
 
 
-## 🔧 Quick Commands Reference
+## Quick Commands Reference
 
 ### Build and Run All Components
 ```shell script
@@ -228,10 +236,11 @@ lsof -i :8000
 - Visit http://localhost:8000 to see the API
 - Visit http://localhost:8000/docs for interactive API documentation
 - Check http://localhost:8000/api/v1/health for health status
+
 #### STG
 - Visit http://34.101.61.31:8000/ to see the API
-- Visit http://34.101.61.31:8000//docs for interactive API documentation
-- Check http://34.101.61.31:8000//api/v1/health for health status
+- Visit http://34.101.61.31:8000/docs for interactive API documentation
+- Check http://34.101.61.31:8000/api/v1/health for health status
 
 ### Vector Database
 - Check `vector_db/output_logs/` for performance reports
@@ -240,8 +249,9 @@ lsof -i :8000
 ---
 
 **Quick Start Summary:**
-1. Navigate to each component directory
-2. Run `chmod +x docker-compose.yml` 
-3. Run `docker-compose up --build`
-4. Access receipt platform at http://localhost:8000
-5. Check output logs for results
+1. Download required dataset using the provided link
+2. Navigate to each component directory
+3. Run `chmod +x docker-compose.yml` 
+4. Run `docker-compose up --build`
+5. Access receipt platform at http://localhost:8000
+6. Check output logs for results
