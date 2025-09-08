@@ -42,7 +42,7 @@ if ! command_exists docker; then
     exit 1
 fi
 
-if ! command_exists docker compose; then
+if ! command_exists docker-compose; then
     print_error "Docker Compose is not installed!"
     exit 1
 fi
@@ -57,34 +57,27 @@ print_status "Working in directory: $SCRIPT_DIR"
 
 # Git operations
 print_status "Updating code from repository..."
+# Pull latest changes
+git pull origin main || {
+    print_error "Git pull failed. Please resolve conflicts manually."
+    exit 1
+}
+print_success "Code updated successfully"
 
-# Check if we're in a git repository
-if [ ! -d ".git" ] && [ ! -d "../.git" ]; then
-    print_warning "Not in a git repository. Skipping git pull."
-else
-    # Stash any local changes
-    if ! git diff --quiet; then
-        print_warning "Local changes detected. Stashing them..."
-        git stash push -m "Auto-stash before deployment $(date)"
-    fi
-
-    # Pull latest changes
-    git pull origin main || {
-        print_error "Git pull failed. Please resolve conflicts manually."
-        exit 1
-    }
-    
-    print_success "Code updated successfully"
-fi
-
-# Create necessary directories
-print_status "Creating necessary directories..."
+# Create necessary directories with correct permissions
+print_status "Creating necessary directories with correct permissions..."
 mkdir -p uploads logs
-print_success "Directories created"
+chmod 755 uploads logs
+# Make sure the directories are writable by the container user (UID 999 is typical for appuser)
+sudo chown -R 999:999 uploads logs 2>/dev/null || {
+    print_warning "Could not set ownership (may need sudo), setting permissions instead..."
+    chmod 777 uploads logs
+}
+print_success "Directories created with proper permissions"
 
 # Stop existing containers
 print_status "Stopping existing containers..."
-docker compose down --remove-orphans || print_warning "No containers to stop"
+docker-compose down --remove-orphans || print_warning "No containers to stop"
 
 # Remove old images (optional - uncomment if you want to always rebuild)
 # print_status "Removing old images..."
@@ -124,9 +117,9 @@ fi
 # Show final status
 print_success "Deployment completed successfully!"
 print_status "Service is running at: http://localhost:8000"
-print_status "Use 'docker compose logs -f ai-platform' to view logs"
-print_status "Use 'docker compose down' to stop the service"
+print_status "Use 'docker-compose logs -f ai-platform' to view logs"
+print_status "Use 'docker-compose down' to stop the service"
 
 # Show running containers
 print_status "Running containers:"
-docker compose ps
+docker-compose ps

@@ -63,10 +63,17 @@ git pull origin main || {
     exit 1
 }
 print_success "Code updated successfully"
-# Create necessary directories
-print_status "Creating necessary directories..."
+
+# Create necessary directories with correct permissions
+print_status "Creating necessary directories with correct permissions..."
 mkdir -p uploads logs
-print_success "Directories created"
+chmod 755 uploads logs
+# Make sure the directories are writable by the container user (UID 999 is typical for appuser)
+sudo chown -R 999:999 uploads logs 2>/dev/null || {
+    print_warning "Could not set ownership (may need sudo), setting permissions instead..."
+    chmod 777 uploads logs
+}
+print_success "Directories created with proper permissions"
 
 # Stop existing containers
 print_status "Stopping existing containers..."
