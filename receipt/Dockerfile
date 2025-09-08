@@ -1,28 +1,3 @@
-FROM python:3.11-slim as builder
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    tesseract-ocr \
-    tesseract-ocr-eng \
-    libgl1-mesa-dri \
-    libgl1 \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender1 \
-    libgomp1 \
-    libgthread-2.0-0 \
-    libfontconfig1 \
-    libxcb1 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /build
-COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --timeout=600 --retries=10 -r requirements.txt
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
