@@ -9,15 +9,18 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    libgl1-mesa-glx \
+    libgl1-mesa-dri \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgtk-3-dev \
+    build-essential \
+    gcc \
+    g++ \
+    python3-dev \
+    libpq-dev \
     curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -31,10 +34,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY ../coding_test .docker-compose.yml
+COPY . .
 
 # Create directories and set permissions
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/output_logs /app/data && \
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser

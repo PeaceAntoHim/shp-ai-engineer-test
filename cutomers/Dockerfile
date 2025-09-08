@@ -7,18 +7,21 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgtk-3-dev \
+# Install system dependencies in correct order
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    python3-dev \
+    libpq-dev \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    procps && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Verify gcc installation
+RUN gcc --version
 
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
@@ -26,15 +29,18 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Set working directory
 WORKDIR /app
 
-# Copy requirements and install dependencies
+# Update requirements.txt to use pre-compiled wheels where possible
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Python dependencies with verbose output
+RUN pip install --no-cache-dir --verbose -r requirements.txt
 
 # Copy application code
-COPY ../coding_test .docker-compose.yml
+COPY . .
 
 # Create directories and set permissions
-RUN chown -R appuser:appuser /app
+RUN mkdir -p /app/output_logs /app/data && \
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser

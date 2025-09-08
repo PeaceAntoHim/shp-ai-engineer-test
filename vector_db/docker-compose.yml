@@ -1,26 +1,11 @@
 services:
-  ai-platform:
-    build: 
+  vector-db:
+    build:
       context: .
-      dockerfile: receipt/Dockerfile
-    container_name: ai-engineering-platform
-    ports:
-      - "8000:8000"
+      dockerfile: Dockerfile
+    container_name: vector-database
     volumes:
-      - ./dataset:/app/dataset:ro
-      - ./logs:/app/logs
-      - receipts_data:/app/receipts.db
-    environment:
-      - DEBUG=true
-      - DATABASE_URL=sqlite:///./receipts.db
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  receipts_data:
-    driver: local
+      - ./output_logs:/app/output_logs
+    env_file:
+      - .env
+    restart: "no"
