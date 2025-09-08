@@ -3,10 +3,10 @@ import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func
 from collections import defaultdict, Counter
 import structlog
-
+import openai
 from config.settings import get_settings
 from schemas.insights_schema import InsightResponse, SpendingAnalytics, AIMode
 from models.receipt_model import Receipt
@@ -27,7 +27,6 @@ class AIService:
         """Setup OpenAI client if API key is available"""
         try:
             if settings.openai_api_key:
-                import openai
                 self.client = openai.OpenAI(api_key=settings.openai_api_key)
                 logger.info("OpenAI client initialized")
             else:
@@ -92,58 +91,142 @@ class AIService:
             return AIMode.RULE_BASED
 
     async def _fetch_relevant_data(
-        self, query: str, db: AsyncSession
+            self, query: str, db: AsyncSession
     ) -> List[Dict[str, Any]]:
         """Fetch relevant receipt data based on query with smart filtering"""
         try:
-            # Extract time-based filters from query
+            logger.info(f"Fetching data for query: {query}")
+
+            # First, let's check if we have any receipts at all with a simple query
+            try:
+                simple_stmt = select(Receipt.id, Receipt.store_name, Receipt.total_amount).limit(5)
+                simple_result = await db.execute(simple_stmt)
+                simple_rows = simple_result.fetchall()
+                logger.info(f"Simple receipt query returned {len(simple_rows)} rows")
+                if simple_rows:
+                    logger.info(f"Sample receipt data: {simple_rows[0]}")
+            except Exception as simple_error:
+                logger.error(f"Simple receipt query failed: {str(simple_error)}")
+                return []
+
+            # Check total count
+            try:
+                count_stmt = select(func.count(Receipt.id))
+                count_result = await db.execute(count_stmt)
+                total_receipts = count_result.scalar()
+                logger.info(f"Total receipts in database: {total_receipts}")
+
+                if total_receipts == 0:
+                    logger.warning("No receipts found in database")
+                    return []
+            except Exception as count_error:
+                logger.error(f"Count query failed: {str(count_error)}")
+                # Continue anyway, maybe the count is the problem
+
+            # Extract filters from query
             time_filter = self._extract_time_filter(query)
             store_filter = self._extract_store_filter(query)
             amount_filter = self._extract_amount_filter(query)
 
-            # Build base query
-            stmt = select(Receipt, ReceiptItem).join(
-                ReceiptItem, Receipt.id == ReceiptItem.receipt_id, isouter=True
-            )
+            logger.info(f"Filters - time: {time_filter}, store: {store_filter}, amount: {amount_filter}")
 
-            # Apply filters based on query content
-            if time_filter:
-                stmt = stmt.where(Receipt.receipt_date >= time_filter)
+            # FOR ITEM AND COMPARISON QUERIES, we need ALL receipt data
+            query_lower = query.lower()
+            needs_all_data = any(phrase in query_lower for phrase in [
+                'compare', 'comparison', 'different stores', 'vs', 'versus',
+                'what', 'item', 'items', 'buy', 'bought', 'frequently', 'frequent', 'purchase'
+            ])
 
-            if store_filter:
-                stmt = stmt.where(Receipt.store_name.ilike(f"%{store_filter}%"))
+            logger.info(f"Needs all data (no store filtering): {needs_all_data}")
 
-            if amount_filter:
-                if amount_filter['operator'] == 'greater':
-                    stmt = stmt.where(Receipt.total_amount > amount_filter['value'])
-                elif amount_filter['operator'] == 'less':
-                    stmt = stmt.where(Receipt.total_amount < amount_filter['value'])
+            # Try the simplest possible approach first - just get receipts
+            try:
+                logger.info("Trying simple receipts-only query")
+                receipt_stmt = select(Receipt)
 
-            stmt = stmt.limit(100)  # Increased limit for better analysis
+                # Only apply filters if not a broad query
+                if not needs_all_data:
+                    if time_filter:
+                        receipt_stmt = receipt_stmt.where(Receipt.receipt_date >= time_filter)
+                    if store_filter:
+                        receipt_stmt = receipt_stmt.where(Receipt.store_name.ilike(f"%{store_filter}%"))
+                    if amount_filter:
+                        if amount_filter['operator'] == 'greater':
+                            receipt_stmt = receipt_stmt.where(Receipt.total_amount > amount_filter['value'])
+                        elif amount_filter['operator'] == 'less':
+                            receipt_stmt = receipt_stmt.where(Receipt.total_amount < amount_filter['value'])
 
-            result = await db.execute(stmt)
-            rows = result.fetchall()
+                receipt_stmt = receipt_stmt.order_by(Receipt.receipt_date.desc()).limit(100)
 
-            data = []
-            for receipt, item in rows:
-                receipt_data = {
-                    "receipt_id": receipt.id,
-                    "store_name": receipt.store_name,
-                    "date": receipt.receipt_date.isoformat() if receipt.receipt_date else None,
-                    "total": float(receipt.total_amount),
-                    "item_name": item.item_name if item else None,
-                    "item_price": float(item.total_price) if item else None,
-                    "category": item.category if item else None,
-                    "quantity": float(item.quantity) if item else None,
-                }
-                data.append(receipt_data)
+                receipt_result = await db.execute(receipt_stmt)
+                receipts = receipt_result.scalars().all()
 
-            return data
+                logger.info(f"Simple receipt query returned {len(receipts)} receipts")
+
+                if not receipts:
+                    logger.warning("No receipts found even with simple query")
+                    return []
+
+                # Convert receipts to data format
+                data = []
+                for receipt in receipts:
+                    receipt_data = {
+                        "receipt_id": receipt.id,
+                        "store_name": receipt.store_name,
+                        "date": receipt.receipt_date.isoformat() if receipt.receipt_date else None,
+                        "total": float(receipt.total_amount),
+                        "item_name": None,
+                        "item_price": None,
+                        "category": None,
+                        "quantity": None,
+                    }
+                    data.append(receipt_data)
+
+                # Now try to get items for these receipts
+                if receipts and any(phrase in query_lower for phrase in
+                                    ['item', 'items', 'buy', 'bought', 'frequently', 'frequent', 'purchase', 'what']):
+                    try:
+                        logger.info("Fetching items for receipts")
+                        receipt_ids = [r.id for r in receipts]
+                        items_stmt = select(ReceiptItem).where(ReceiptItem.receipt_id.in_(receipt_ids)).limit(1000)
+                        items_result = await db.execute(items_stmt)
+                        items = items_result.scalars().all()
+
+                        logger.info(f"Found {len(items)} items for these receipts")
+
+                        # Create a lookup for receipt data
+                        receipt_lookup = {r.id: r for r in receipts}
+
+                        # Add item data
+                        for item in items:
+                            receipt = receipt_lookup.get(item.receipt_id)
+                            if receipt:
+                                item_data = {
+                                    "receipt_id": item.receipt_id,
+                                    "store_name": receipt.store_name,
+                                    "date": receipt.receipt_date.isoformat() if receipt.receipt_date else None,
+                                    "total": float(receipt.total_amount),
+                                    "item_name": item.item_name,
+                                    "item_price": float(item.total_price) if item.total_price else None,
+                                    "category": item.category,
+                                    "quantity": float(item.quantity) if item.quantity else None,
+                                }
+                                data.append(item_data)
+
+                    except Exception as items_error:
+                        logger.error(f"Failed to fetch items: {str(items_error)}")
+                        # Continue with receipt data only
+
+                logger.info(f"Final data length: {len(data)}")
+                return data
+
+            except Exception as receipt_error:
+                logger.error(f"Simple receipt query failed: {str(receipt_error)}")
+                return []
 
         except Exception as e:
-            logger.error("Failed to fetch relevant data", error=str(e))
+            logger.error(f"Failed to fetch relevant data: {str(e)}", exc_info=True)
             return []
-
     def _extract_time_filter(self, query: str) -> Optional[datetime]:
         """Extract time-based filters from natural language query"""
         query_lower = query.lower()
@@ -220,16 +303,22 @@ class AIService:
             return {"total_receipts": 0, "total_spent": 0.0}
 
         try:
-            # Basic metrics
             unique_receipts = set(item["receipt_id"] for item in data if item["receipt_id"])
-            total_spent = sum(item["total"] for item in data if item["total"])
+            receipt_totals = {}
+            for item in data:
+                if item["receipt_id"] and item["total"]:
+                    receipt_totals[item["receipt_id"]] = item["total"]
+            total_spent = sum(receipt_totals.values())
 
-            # Store analysis
             store_spending = defaultdict(float)
             store_visits = defaultdict(int)
+            receipt_store_totals = {}
             for item in data:
-                if item["store_name"] and item["receipt_id"]:
-                    store_spending[item["store_name"]] += item["total"]
+                if item["store_name"] and item["receipt_id"] and item["total"]:
+                    receipt_store_totals[item["receipt_id"]] = (item["store_name"], item["total"])
+        
+            for receipt_id, (store_name, total) in receipt_store_totals.items():
+                store_spending[store_name] += total
 
             # Count unique visits per store
             receipt_stores = {}
@@ -240,7 +329,6 @@ class AIService:
             for store in receipt_stores.values():
                 store_visits[store] += 1
 
-            # Item analysis
             item_categories = Counter()
             item_spending = defaultdict(float)
             for item in data:
@@ -251,10 +339,16 @@ class AIService:
 
             # Time analysis
             date_spending = defaultdict(float)
+        
+            # FIX: Only count each receipt once per date
+            receipt_date_totals = {}
             for item in data:
-                if item["date"] and item["total"]:
+                if item["date"] and item["receipt_id"] and item["total"]:
                     date = item["date"][:10]  # Extract date part
-                    date_spending[date] += item["total"]
+                    receipt_date_totals[item["receipt_id"]] = (date, item["total"])
+        
+            for receipt_id, (date, total) in receipt_date_totals.items():
+                date_spending[date] += total
 
             analysis = {
                 "total_receipts": len(unique_receipts),
@@ -268,8 +362,8 @@ class AIService:
                 "daily_spending": dict(sorted(date_spending.items())),
                 "average_per_receipt": total_spent / len(unique_receipts) if unique_receipts else 0,
                 "spending_range": {
-                    "min": min(item["total"] for item in data if item["total"]) if data else 0,
-                    "max": max(item["total"] for item in data if item["total"]) if data else 0,
+                    "min": min(receipt_totals.values()) if receipt_totals else 0,
+                    "max": max(receipt_totals.values()) if receipt_totals else 0,
                 }
             }
 
@@ -294,22 +388,44 @@ class AIService:
             return {"start": None, "end": None}
 
     async def _generate_ai_response(
-        self, query: str, analysis: Dict[str, Any], data: List[Dict[str, Any]]
+            self, query: str, analysis: Dict[str, Any], data: List[Dict[str, Any]]
     ) -> str:
         """Generate AI response using OpenAI"""
         try:
-            # Prepare context for AI
+            # Add debug information
+            total_receipts = analysis.get("total_receipts", 0)
+            logger.info(f"Generating AI response for query: {query}")
+            logger.info(f"Analysis data: receipts={total_receipts}, stores={len(analysis.get('top_stores', {}))}")
+            logger.info(f"Raw data length: {len(data)}")
+
+            # Prepare context for AI using the corrected analysis data, not raw data
             context = {
                 "query": query,
-                "data_summary": {
-                    "total_receipts": len(data),
-                    "receipts": data[:5],  # Limit data size for API
+                "analysis": {
+                    "total_receipts": analysis.get("total_receipts", 0),
+                    "total_spent": analysis.get("total_spent", 0.0),
+                    "average_per_receipt": analysis.get("average_per_receipt", 0.0),
+                    "date_range": analysis.get("date_range", {}),
+                    "top_stores": analysis.get("top_stores", {}),
+                    "store_visits": analysis.get("store_visits", {}),
+                    "top_items": analysis.get("top_items", {}),
+                    "categories": analysis.get("categories", {}),
+                    "daily_spending": analysis.get("daily_spending", {}),
+                    "spending_range": analysis.get("spending_range", {})
                 },
+                "sample_receipts": self._get_unique_receipt_sample(data)
             }
 
+            # Improve system prompt to handle limited data scenarios better
             system_prompt = """You are a helpful assistant that analyzes food purchase data. 
-            Based on the receipt data provided, answer the user's question in a natural, conversational way.
-            Focus on being accurate and helpful. If you can't find specific information, say so politely.
+            Based on the analysis data provided, answer the user's question in a natural, conversational way.
+            Use the pre-calculated totals and metrics from the analysis section - do NOT recalculate totals yourself.
+            The analysis has already deduplicated receipt data, so use those values directly.
+
+            If the user asks for comparisons but there's limited data (e.g., only one store), explain what you can see 
+            and suggest what additional data would be needed for a proper comparison.
+
+            If there's no data at all, politely explain that no receipt data was found and suggest uploading receipts.
             Format monetary amounts with dollar signs and be specific about dates and locations when available."""
 
             response = self.client.chat.completions.create(
@@ -318,7 +434,7 @@ class AIService:
                     {"role": "system", "content": system_prompt},
                     {
                         "role": "user",
-                        "content": f"Query: {query}\n\nData: {json.dumps(context, indent=2)}",
+                        "content": f"Query: {query}\n\nAnalysis Data: {json.dumps(context, indent=2, default=str)}",
                     },
                 ],
                 max_tokens=settings.max_tokens,
@@ -331,27 +447,83 @@ class AIService:
             logger.error("AI response generation failed", error=str(e))
             return await self._generate_rule_based_response(query, analysis, data)
 
+    def _get_unique_receipt_sample(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Get a sample of unique receipts to avoid sending duplicate data to AI"""
+        unique_receipts = {}
+        for item in data:
+            receipt_id = item.get("receipt_id")
+            if receipt_id and receipt_id not in unique_receipts:
+                unique_receipts[receipt_id] = {
+                    "receipt_id": receipt_id,
+                    "store_name": item.get("store_name"),
+                    "date": item.get("date"),
+                    "total": item.get("total")
+                }
+
+        # Return up to 10 unique receipts as sample
+        return list(unique_receipts.values())[:10]
+
     async def _generate_rule_based_response(
-        self, query: str, analysis: Dict[str, Any], data: List[Dict[str, Any]]
+            self, query: str, analysis: Dict[str, Any], data: List[Dict[str, Any]]
     ) -> str:
         """Enhanced rule-based response generation with intelligent pattern matching"""
         try:
             query_lower = query.lower()
             total_receipts = analysis.get("total_receipts", 0)
             total_spent = analysis.get("total_spent", 0.0)
-            
-            # No data case
+
+            # Debug logging
+            logger.info(f"Rule-based response: query='{query}', receipts={total_receipts}, spent=${total_spent}")
+
+            # No data case - but provide more specific guidance
             if total_receipts == 0:
-                return "I couldn't find any receipts matching your criteria. You might want to upload some receipts first or adjust your search parameters."
-            
+                logger.info("No receipts found for rule-based response")
+                if any(phrase in query_lower for phrase in
+                       ['compare', 'comparison', 'different stores', 'vs', 'versus']):
+                    return "I couldn't find receipts from multiple stores to compare. You might need to upload receipts from different stores first, or there might be only one store in your data."
+                else:
+                    return "I couldn't find any receipts matching your criteria. You might want to upload some receipts first or adjust your search parameters."
+
+            # Item/product queries - HANDLE THIS CASE BETTER
+            if any(phrase in query_lower for phrase in
+                   ['what', 'item', 'product', 'buy', 'bought', 'purchase', 'frequently', 'frequent']):
+                top_items = analysis.get('top_items', {})
+                categories = analysis.get('categories', {})
+
+                logger.info(f"Item query: found {len(top_items)} items, {len(categories)} categories")
+
+                # If we have receipts but no items, explain the situation
+                if not top_items and not categories:
+                    return f"I found {total_receipts} receipt{'s' if total_receipts != 1 else ''} with a total of ${total_spent:.2f}, but I couldn't identify specific items from the receipt data. This might be because the receipt text processing needs improvement, or the receipts don't have detailed item information."
+
+                response = ""
+
+                if top_items:
+                    response += f"**Items you buy frequently:**\n"
+                    for item, amount in list(top_items.items())[:10]:
+                        response += f"• {item}: ${amount:.2f}\n"
+                    response += "\n"
+
+                if categories:
+                    response += f"**Item categories:**\n"
+                    for category, count in categories.items():
+                        response += f"• {category}: {count} item{'s' if count != 1 else ''}\n"
+                    response += "\n"
+
+                # Add summary information
+                if response:
+                    response += f"Based on {total_receipts} receipt{'s' if total_receipts != 1 else ''} totaling ${total_spent:.2f}."
+
+                return response.strip()
+
             # Spending amount queries
-            if any(phrase in query_lower for phrase in ['how much', 'total spent', 'spent', 'cost', 'money']):
+            elif any(phrase in query_lower for phrase in ['how much', 'total spent', 'spent', 'cost', 'money']):
                 response = f"Based on {total_receipts} receipt{'s' if total_receipts != 1 else ''}, you've spent **${total_spent:.2f}**"
-                
+
                 if 'average' in query_lower:
                     avg = analysis.get('average_per_receipt', 0)
                     response += f" with an average of ${avg:.2f} per receipt"
-                
+
                 # Add time context if available
                 date_range = analysis.get('date_range', {})
                 if date_range.get('start') and date_range.get('end'):
@@ -361,120 +533,118 @@ class AIService:
                         response += f" from {start_date} to {end_date}"
                     else:
                         response += f" on {start_date}"
-                
+
                 return response + "."
-            
+
             # Store-related queries
             elif any(phrase in query_lower for phrase in ['where', 'store', 'shop', 'place', 'location']):
                 top_stores = analysis.get('top_stores', {})
                 store_visits = analysis.get('store_visits', {})
-                
+
                 if not top_stores:
-                    return "I couldn't find store information in your receipts."
-                
+                    return f"I found {total_receipts} receipt{'s' if total_receipts != 1 else ''} but couldn't identify store information. The receipts might need better store name extraction."
+
                 response = f"You've shopped at **{len(top_stores)} different store{'s' if len(top_stores) != 1 else ''}**:\n\n"
-                
+
                 for store, amount in list(top_stores.items())[:5]:
                     visits = store_visits.get(store, 1)
                     avg_per_visit = amount / visits if visits > 0 else amount
                     response += f"• **{store}**: ${amount:.2f} across {visits} visit{'s' if visits != 1 else ''} (avg: ${avg_per_visit:.2f})\n"
-                
+
                 # Find favorite store
                 if top_stores:
                     favorite_store = max(top_stores.items(), key=lambda x: x[1])
                     response += f"\nYour top spending location is **{favorite_store[0]}** at ${favorite_store[1]:.2f}."
-                
+
                 return response
-            
-            # Item/product queries
-            elif any(phrase in query_lower for phrase in ['what', 'item', 'product', 'buy', 'bought', 'purchase']):
-                top_items = analysis.get('top_items', {})
-                categories = analysis.get('categories', {})
-                
-                if not top_items and not categories:
-                    return "I found your receipts but couldn't identify specific items. The receipt text might need better processing."
-                
-                response = ""
-                
-                if top_items:
-                    response += f"**Top items you've purchased:**\n"
-                    for item, amount in list(top_items.items())[:8]:
-                        response += f"• {item}: ${amount:.2f}\n"
-                    response += "\n"
-                
-                if categories:
-                    response += f"**Item categories:**\n"
-                    for category, count in categories.items():
-                        response += f"• {category}: {count} item{'s' if count != 1 else ''}\n"
-                
-                return response.strip()
-            
+
             # Time-based queries
-            elif any(phrase in query_lower for phrase in ['when', 'date', 'time', 'recent', 'last', 'this week', 'month']):
+            elif any(phrase in query_lower for phrase in
+                     ['when', 'date', 'time', 'recent', 'last', 'this week', 'month']):
                 daily_spending = analysis.get('daily_spending', {})
-                
+
                 if not daily_spending:
                     return f"I found {total_receipts} receipts with a total of ${total_spent:.2f}, but couldn't determine the specific dates."
-                
+
                 response = f"**Your spending timeline:**\n\n"
-                
+
                 # Show recent spending
                 sorted_dates = sorted(daily_spending.items(), reverse=True)
                 for date, amount in sorted_dates[:10]:
                     formatted_date = datetime.fromisoformat(date).strftime("%B %d, %Y")
                     response += f"• {formatted_date}: ${amount:.2f}\n"
-                
+
                 # Find spending patterns
                 if len(daily_spending) >= 7:
                     recent_week = sum(list(daily_spending.values())[-7:])
                     response += f"\nYour spending in the last 7 days: ${recent_week:.2f}"
-                
+
                 return response
-            
-            # Comparison queries
+
+            # Comparison queries - IMPROVED HANDLING
             elif any(phrase in query_lower for phrase in ['compare', 'vs', 'versus', 'difference', 'more', 'less']):
                 spending_range = analysis.get('spending_range', {})
                 top_stores = analysis.get('top_stores', {})
-                
+
+                # Handle store comparison specifically
+                if any(phrase in query_lower for phrase in ['store', 'stores', 'shop', 'shops']):
+                    if len(top_stores) < 2:
+                        if len(top_stores) == 1:
+                            store_name = list(top_stores.keys())[0]
+                            return f"I found receipts from only one store: **{store_name}** (${list(top_stores.values())[0]:.2f}). To compare stores, you need receipts from multiple different stores."
+                        else:
+                            return f"I found {total_receipts} receipt{'s' if total_receipts != 1 else ''} but couldn't identify store information for comparison. The receipts might need better store name extraction."
+
                 response = f"**Spending comparison insights:**\n\n"
-                
+
                 if spending_range:
                     response += f"• Lowest receipt: ${spending_range.get('min', 0):.2f}\n"
                     response += f"• Highest receipt: ${spending_range.get('max', 0):.2f}\n"
                     response += f"• Average per receipt: ${analysis.get('average_per_receipt', 0):.2f}\n\n"
-                
+
                 if len(top_stores) >= 2:
+                    response += f"**Store comparison:**\n"
                     stores_list = list(top_stores.items())
-                    top_store = stores_list[0]
-                    second_store = stores_list[1]
-                    difference = top_store[1] - second_store[1]
-                    response += f"You spend ${difference:.2f} more at **{top_store[0]}** (${top_store[1]:.2f}) than at **{second_store[0]}** (${second_store[1]:.2f})."
-                
+                    for i, (store, amount) in enumerate(stores_list[:5]):
+                        visits = analysis.get('store_visits', {}).get(store, 1)
+                        avg_per_visit = amount / visits if visits > 0 else amount
+                        response += f"{i + 1}. **{store}**: ${amount:.2f} ({visits} visit{'s' if visits != 1 else ''}, avg: ${avg_per_visit:.2f})\n"
+
+                    # Show difference between top stores
+                    if len(stores_list) >= 2:
+                        top_store = stores_list[0]
+                        second_store = stores_list[1]
+                        difference = top_store[1] - second_store[1]
+                        response += f"\nYou spend **${difference:.2f} more** at {top_store[0]} than at {second_store[0]}."
+                elif len(top_stores) == 1:
+                    store_name, amount = list(top_stores.items())[0]
+                    response += f"I can only find data from one store: **{store_name}** (${amount:.2f}). Add receipts from other stores to enable comparison."
+
                 return response
-            
+
             # Summary/general queries
             elif any(phrase in query_lower for phrase in ['summary', 'overview', 'tell me', 'show me', 'analyze']):
-                response = f"**📊 Your Spending Summary:**\n\n"
+                response = f"**Your Spending Summary:**\n\n"
                 response += f"• **Total spent**: ${total_spent:.2f}\n"
                 response += f"• **Number of receipts**: {total_receipts}\n"
                 response += f"• **Average per receipt**: ${analysis.get('average_per_receipt', 0):.2f}\n"
                 response += f"• **Stores visited**: {analysis.get('unique_stores', 0)}\n\n"
-                
+
                 # Top store
                 top_stores = analysis.get('top_stores', {})
                 if top_stores:
                     top_store = list(top_stores.items())[0]
-                    response += f"🏪 **Top store**: {top_store[0]} (${top_store[1]:.2f})\n"
-                
+                    response += f"**Top store**: {top_store[0]} (${top_store[1]:.2f})\n"
+
                 # Date range
                 date_range = analysis.get('date_range', {})
                 if date_range.get('start') and date_range.get('end'):
                     start_date = date_range['start'][:10]
                     end_date = date_range['end'][:10]
                     response += f"**Period**: {start_date} to {end_date}\n"
-                
+
                 return response
-            
+
             # Fallback with helpful suggestions
             else:
                 suggestions = [
@@ -484,12 +654,12 @@ class AIService:
                     "• Show me my spending summary",
                     "• Compare my spending at different stores"
                 ]
-                
+
                 response = f"I found {total_receipts} receipts with ${total_spent:.2f} in total spending, but I'm not sure exactly what you're looking for.\n\n"
                 response += "Here are some questions you can ask:\n" + "\n".join(suggestions)
-                
+
                 return response
-                
+
         except Exception as e:
             logger.error("Rule-based response generation failed", error=str(e))
             return "I'm sorry, I encountered an error while analyzing your receipts. Please try rephrasing your question."
