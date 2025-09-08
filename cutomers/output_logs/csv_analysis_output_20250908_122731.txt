@@ -1,0 +1,211 @@
+====================================================================================================
+CSV PROCESSING & ANALYSIS - COMPREHENSIVE OUTPUT LOG
+====================================================================================================
+Generated: 2025-09-08 12:27:31
+Log File: output_logs/csv_analysis_output_20250908_122731.txt
+====================================================================================================
+Enhanced CSV Processing & Analysis Suite
+Demonstrating SOLID, KISS, and YAGNI principles
+Processing files:
+• Small: dataset/customers-100000.csv
+• Large: dataset/customers-2000000.csv
+• Output logging to: output_logs/csv_analysis_output_20250908_122731.txt
+
+================================================================================
+QUESTION 1: SMALL CSV ANALYSIS (customers-100000.csv)
+================================================================================
+
+ SMALL FILE ANALYSIS
+------------------------------------------------------------
+PROCESSING SUMMARY
+   File: dataset/customers-100000.csv
+   Total Rows: 100,000
+   Successfully Processed: 100,000
+   Failed Records: 0
+   Success Rate: 100.00%
+
+PERFORMANCE METRICS
+   Strategy: small_file_full_load
+   Execution Time: 7.39 seconds
+   Memory Usage: 130.8 MB
+   Peak Memory: 212.7 MB
+   CPU Usage: 35.5%
+   Throughput: 13,531 rows/second
+
+DATA QUALITY ASSESSMENT
+   Completeness Score: 100.0%
+   Validity Score: 100.0%
+   Consistency Score: 68.0%
+   Unique Customers: 100,000
+   Duplicates Found: 0
+
+MISSING VALUES ANALYSIS
+
+GEOGRAPHIC INSIGHTS
+   Countries Represented: 15
+   Top Countries:
+   1. Congo: 835 customers (0.8%)
+   2. Korea: 820 customers (0.8%)
+   3. Saudi Arabia: 463 customers (0.5%)
+   4. Pitcairn Islands: 456 customers (0.5%)
+   5. Saint Martin: 453 customers (0.5%)
+
+MARKET PENETRATION
+   Congo: 0.83% market share
+   Korea: 0.82% market share
+   Saudi Arabia: 0.46% market share
+
+BUSINESS INTELLIGENCE
+   Unique Companies: 15
+   Top Companies:
+   1. Wilkerson Ltd: 17 customers
+   2. Campbell Ltd: 17 customers
+   3. Acosta Ltd: 16 customers
+
+INDUSTRY SEGMENTS
+   Technology: 3,695 companies
+   Financial: 180 companies
+   Healthcare: 448 companies
+   LLC/Corporation: 22,626 companies
+   Partnership: 72,635 companies
+
+COMMUNICATION ANALYSIS
+   Email Domains (Top 5):
+   • Corporate - mckee.com: 59
+   • Corporate - pugh.com: 59
+   • Corporate - terrell.com: 57
+   • Corporate - lawrence.com: 57
+   • Corporate - gaines.com: 56
+
+PHONE ANALYSIS
+   Total Primary Phones: 100,000
+   Total Secondary Phones: 100,000
+   Dual Phone Customers: 100,000
+   Coverage Percentage: 100.0
+
+TEMPORAL ANALYSIS
+   Subscription Timeline:
+   2020: 41,898 subscriptions
+   2021: 41,211 subscriptions
+   2022: 16,891 subscriptions
+   Seasonal Patterns:
+   Spring: 31,046 subscriptions
+   Summer: 21,013 subscriptions
+   Fall: 20,589 subscriptions
+   Winter: 27,352 subscriptions
+
+DATA STRUCTURE
+   Total Columns: 12
+   Data Types:
+   • Index: int64
+   • Customer Id: object
+   • First Name: object
+   • Last Name: object
+   • Company: object
+
+================================================================================
+QUESTION 2: LARGE CSV ANALYSIS (customers-2000000.csv)
+Memory-Efficient Processing
+================================================================================
+
+ LARGE FILE ANALYSIS
+------------------------------------------------------------
+PROCESSING SUMMARY
+   File: dataset/customers-2000000.csv
+   Total Rows: 2,000,000
+   Successfully Processed: 2,000,000
+   Failed Records: 0
+   Success Rate: 100.00%
+
+PERFORMANCE METRICS
+   Strategy: large_file_chunked_streaming
+   Execution Time: 104.89 seconds
+   Memory Usage: 355.8 MB
+   Peak Memory: 495.0 MB
+   CPU Usage: 0.0%
+   Throughput: 19,067 rows/second
+   Chunks Processed: 245
+   Garbage Collections: 141
+
+DATA QUALITY ASSESSMENT
+   Completeness Score: 100.0%
+   Validity Score: 95.0%
+   Consistency Score: 90.0%
+   Unique Customers: 2,000,000
+   Duplicates Found: 0
+
+MISSING VALUES ANALYSIS
+
+MEMORY EFFICIENCY ANALYSIS
+   Memory Efficient Processing: True
+   Constant Memory Usage: ~355.8 MB
+   Chunks Processed: 245
+   Garbage Collections: 141
+   Avg Memory per Chunk: 1.5 MB
+
+STREAMING ANALYSIS RESULTS
+   Total Records Analyzed: 2,000,000
+   Unique Customers: 2,000,000
+   Data Completeness: 100.0%
+
+TOP MARKETS (Streaming Analysis)
+   1. Korea: 16,240 customers
+   2. Congo: 16,208 customers
+   3. Jordan: 8,428 customers
+   4. Vietnam: 8,388 customers
+   5. Suriname: 8,375 customers
+
+EMAIL PATTERNS (Streaming Analysis)
+   • rojas.com: 898
+   • benson.com: 889
+   • huang.com: 886
+   • valentine.com: 873
+   • schmidt.com: 870
+
+GROWTH TRENDS (Streaming Analysis)
+   2020: 831,045 new subscriptions
+   2021: 830,392 new subscriptions
+   2022: 338,563 new subscriptions
+
+================================================================================
+PROCESSING COMPARISON: SMALL vs LARGE FILE
+================================================================================
+
+PERFORMANCE COMPARISON
+Metric                    Small File           Large File           Difference     
+--------------------------------------------------------------------------------
+Rows Processed            100,000              2,000,000            20.0           x
+Execution Time (s)        7.39                 104.89               14.2           x
+Memory Usage (MB)         130.8                355.8                2.7            x
+Throughput (rows/s)       13,531               19,067               1.4            x
+
+PROCESSING STRATEGY DIFFERENCES
+Small File Strategy: small_file_full_load
+• Full dataset loaded into memory
+• Complete statistical analysis
+• Exact calculations and insights
+• Higher memory usage (130.8 MB)
+
+Large File Strategy: large_file_chunked_streaming
+• Chunked streaming processing
+• Accumulated statistical analysis
+• Approximate insights from streaming
+• Constant memory usage (~355.8 MB)
+• 245 chunks processed
+
+WHEN TO USE EACH APPROACH
+Small File Processor:
+Files < 150,000 rows
+Need exact statistical analysis
+Have sufficient RAM (2-3x file size)
+Interactive data exploration
+Real-time analytics dashboards
+
+Large File Processor:
+Files > 150,000 rows
+Limited memory environments
+Production batch processing
+Streaming data pipelines
+Server environments with memory constraints
+
+Analysis Complete - 2025-09-08 12:29:24.636832
