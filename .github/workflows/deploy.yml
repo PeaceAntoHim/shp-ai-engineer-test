@@ -26,5 +26,5 @@ jobs:
             set -e
             cd /opt/code/shp-ai-engineer-test/receipt
             git pull origin main
-            ./deploy.sh
+            ./stg.build.sh
           EOF

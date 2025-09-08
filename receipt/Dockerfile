@@ -22,11 +22,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /build
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install --user --no-cache-dir --timeout=600 --retries=10 -r requirements.txt
+    pip install --no-cache-dir --timeout=600 --retries=10 -r requirements.txt
 FROM python:3.11-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH=/root/.local/bin:$PATH
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
