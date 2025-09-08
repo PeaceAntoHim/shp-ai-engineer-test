@@ -42,7 +42,7 @@ if ! command_exists docker; then
     exit 1
 fi
 
-if ! command_exists docker-compose; then
+if ! command_exists docker compose; then
     print_error "Docker Compose is not installed!"
     exit 1
 fi
@@ -77,7 +77,7 @@ print_success "Directories created with proper permissions"
 
 # Stop existing containers
 print_status "Stopping existing containers..."
-docker-compose down --remove-orphans || print_warning "No containers to stop"
+docker compose down --remove-orphans || print_warning "No containers to stop"
 
 # Remove old images (optional - uncomment if you want to always rebuild)
 # print_status "Removing old images..."
@@ -117,9 +117,9 @@ fi
 # Show final status
 print_success "Deployment completed successfully!"
 print_status "Service is running at: http://localhost:8000"
-print_status "Use 'docker-compose logs -f ai-platform' to view logs"
-print_status "Use 'docker-compose down' to stop the service"
+print_status "Use 'docker compose logs -f ai-platform' to view logs"
+print_status "Use 'docker compose down' to stop the service"
 
 # Show running containers
 print_status "Running containers:"
-docker-compose ps
+docker compose ps
